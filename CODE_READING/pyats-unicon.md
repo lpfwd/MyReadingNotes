@@ -81,8 +81,22 @@ supported_os = [
 
 ### Connection 类
 从一个cat9k的Connection实现来看继承的层级
-![Cat9k Connection]()
+![Cat9k Connection](https://github.com/lpfwd/MyReadingNotes/blob/main/pics/Cat9kConnection.png?raw=true)
 
+最基础的类是Connection, 在Connection基础上增加了 Single RP, IosXE, Cat9k的特殊属性
+
+那么关于Connection类的定义
+
+```python
+class Connection(Lockable, metaclass=ConnectionMeta):
+```
+
+这里用到了meta class, 可以参考[廖雪峰老师的教程](https://www.liaoxuefeng.com/wiki/1016959663602400/1017592449371072)
+plugin manager 在注册Plugin的时候会根据os, series, model来保存不通的plugin的connection类，详细的数据结构见下图：
+![plugin manager内部数据](https://github.com/lpfwd/MyReadingNotes/blob/main/pics/pluginmanager_internal_data.png?raw=true)
+
+
+用户代码在创建connection的时候，只需要调用base connection类，base connection类会根据传入的os,series,model参数选择正确的子类进行实例化。
 
 
 
