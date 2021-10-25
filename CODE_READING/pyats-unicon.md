@@ -19,6 +19,7 @@ Unicon的代码目前在公网上还找不到下载的地方，github中有[unic
 
 ### example code
 下面这段对unicon使用的代码来自于unicon下面的demo目录
+
 ```python
 from unicon import Connection
 
@@ -44,6 +45,46 @@ write_erase = Statement(pattern=r'.*Do you wish to proceed anyway\? \(y/n\)\s*\[
 dev.execute("write erase", reply=Dialog([write_erase]))
 dev.config()
 ```
+可以看到有了unicon以后，用户可以直接使用connect()和execute()进行登录和运行CLI命令，而不用在用户代码中添加一堆的处理函数来应对Username：， Password：这种输入情况的处理。
+
+Unicon这是一个大的框架，而对于不同设备的具体处理，在plugin的代码里面。从plugin的__init__.py中可以看到支持的设备类型非常多。
+
+```python
+supported_os = [
+    'generic',
+    'ios',
+    'nxos',
+    'iosxe',
+    'iosxr',
+    'aireos',
+    'linux',
+    'cheetah',
+    'ise',
+    'asa',
+    'nso',
+    'confd',
+    'vos',
+    'cimc',
+    'fxos',
+    'junos',
+    'staros',
+    'aci',
+    'sdwan',
+    'sros',
+    'apic',
+    'windows'
+]
+```
+### plugin的发现与安装
+先看一下plugin是怎么和unicon结合在一起的。
+在根目录的__init__.py中会初始化PluginMananger,并且把plugins/ 下的所有python module都import 进系统。
+
+### Connection 类
+从一个cat9k的Connection实现来看继承的层级
+![Cat9k Connection]()
+
+
+
 
 
 
