@@ -98,8 +98,149 @@ plugin manager 在注册Plugin的时候会根据os, series, model来保存不通
 
 用户代码在创建connection的时候，只需要调用base connection类，base connection类会根据传入的os,series,model参数选择正确的子类进行实例化。
 
+我们主要研究IOS-XE平台，所以先从plugins/ios-xe入手
+目录结构
+unicon
+  +--plugins
+       +-- ios-xe
+            +-- cat3k
+            +-- cat9k
+            ....
+            +-- __init__.py
+            +-- patterns.py
+            +-- service_implementation.py
+            +-- service_statements.py
+            +-- settings.py
+            +-- statemachine.py
+            +-- statements.py
+  
+  其中 '__init__.py' 会包含一些重要的class
+  
+###   connect()函数
+  初始化完一个*Connection class*以后，就会调用其 *connect()* 函数对device进行连接。
+对于 *IosXESingleRpConnection* 会直接调用其base claas -- Connection的connect()
+在继续进行connect()函数的介绍之前，需要先看一下Connection类的几大组件。
+
+###组件
+#### Spawn
+![Spawn继承结构图](https://github.com/lpfwd/MyReadingNotes/blob/main/pics/unicon_spawn.png?raw=true) 
+  
+从上图可以看出Spawn的继承结构还是比较复杂的，Spawn主要复杂最底层的功能，连接设备，收发字符，判断buffer中的字符是否匹配用户的pattern.
+从Spawn base class的抽象函数可以看出来其基本功能
+
+```python
+    @abstractmethod
+    def expect(self, *args, **kwargs):
+        raise NotImplementedError('this method must be overwritten ..')
+
+    @abstractmethod
+    def send(self, *args, **kwargs):
+        raise NotImplementedError('this method must be overwritten ..')
+
+    @abstractmethod
+    def sendline(self, *args, **kwargs):
+        raise NotImplementedError('this method must be overwritten ..')
+
+    @abstractmethod
+    def read_update_buffer(self, size=None):
+        raise NotImplementedError('this method must be implemented ..')
+
+    @abstractmethod
+    def match_buffer(self, pat_list):
+        raise NotImplementedError('this method must be implemented ..')
+
+    @abstractmethod
+    def trim_buffer(self):
+        raise NotImplementedError('this method must be implemented ..')
+
+    @abstractmethod
+    def close(self, *args, **kwargs):
+        raise NotImplementedError('this method must be implemented ..')
+```
+
+对于其他的实现，如果收到 *ssh -l user ip* 需要用ssh client, 如果是收到
+*telnet ip* 需要调用 telnet client. 在这里unicon 用了其他的方式实现，他使用了一个库pty. 并调用了 pty.fork(), fork出来的子进程需要调用 *os.execvp()* 去直接调用shell的telnet 和 ssh命令， 返回的fd被父进程保存下来，用来 read/write 来实现收发字符。
+
+```
+pty.fork()
+   将子进程的控制终端连接到一个伪终端。 返回值为 (pid, fd)。 请注意子进程
+获得 pid 0 而 fd 为 invalid。 父进程返回值为子进程的 pid 而 fd 为一个连接到
+子进程的控制终端（并同时连接到子进程的标准输入和输出）的文件描述符。
+```
+在Spawn中的expect()函数包含几个操作:
+1. 读取stdin
+2. 保存在buffer里面
+3. 和传入expect()函数的正则表达式列表做匹配
+expect() 在读取stdin到buffer时的默认设置：
+> timeout : 10s
+> buffer size: 4096bytes
+
+#### Dialog
+CLI一般是用于与设备交互，就是用户输入一条命令，根据输入再进行下一步的动作。而unicon实现的就是类似这样的结构
+
+```
+execute(command);
+expect(pattern);
+...
+execute(command);
+expect(pattern);
+```
+但是对程序来说，还有很多更复杂的情况。比如reload命令，用户输入完以后，如果没有保存running config,那么设备会输出 *System configuration has been modified. Save? [yes/no]:* 如果选择yes,那么设备接着输出 P*roceed with reload? [confirm]* 这个时候之前的一个命令，一个expect就不能处理了，所以unicon设计出了Dialog
+
+Dialog就是Statement的list:
+
+```python
+            dialog = Dialog([
+                Statement(pattern=r"^username:$",
+                          action=lambda spawn: spawn.sendline("admin"),
+                          args=None,
+                          loop_continue=True,
+                          continue_timer=False ),
+                Statement(pattern=r"^password:$",
+                          action=lambda spawn: spawn.sendline("admin"),
+                          args=None,
+                          loop_continue=True,
+                          continue_timer=False ),
+                Statement(pattern=r"^host-prompt#$",
+                          action=None,
+                          args=None,
+                          loop_continue=False,
+                          continue_timer=False ),
+            ])
+```
+
+那么Statement是什么呢？根据代码注释：
+
+```python
+    Description:
+        Dialogs are nothing but a set of statements. Statement contains
+        five things:
+
+            * pattern: a match is used to invoke the callback.
+            * action: a function which is called in case the pattern is matched.
+            * args: a dict containing all the arguments required by callback function.
+            * loop_continue: When it is true, the dialog doesn't exit and continues to look for the match.
+            * continue_timer: timer is restarted after every match.
+            * trim_buffer: When it is False, matched content will not be removed from buffer.
+            * matched_retries: retry times if statement pattern is matched, default is 0
+            * matched_retry_sleep: sleep between retries, default is 0.02 sec
+```
+
+Dialog 实例化以后，会调用方法process()处理这个Dialog. process()会实例化一个DialogProcessor()，然后调用其方法process()
+在实例化DialogProcessor的时候会传入相应的spawn, process()方法会使用spawn读取设备的输出，匹配Statement里面的pattern, 然后执行Statement里面的action.
 
 
+#### ExpectMatch
+先看一下ExpectMatch的内部字段
 
+```python
+    def __init__(self):
+        self.last_match = None
+        self.last_match_index = None
+        self.last_match_mode = None
+        self.match_output = ""
+```
+如果expect()或者Dialog的process(), 匹配到一个pattern, 那么会把re.search()的结果存入last_match, 把pattern list里面match到的pattern的index存入last_match_index, 把re.search().group()存入match_output。最后会调用spawn.trim_buffer(),把match的output从spawn的buffer里面拿掉。
 
+#### StateMachine
 
