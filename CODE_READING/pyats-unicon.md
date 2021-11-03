@@ -1,7 +1,20 @@
 # PYATS -- UNICON
 
-[TOC]
 
+Table of Contents
+=================
+
+   * [Pyats简介](#pyats简介)
+   * [Unicon简介](#unicon简介)
+   * [Unicon代码分析](#unicon代码分析)
+      * [example code](#example-code)
+      * [plugin的发现与安装](#plugin的发现与安装)
+      * [Connection 类](#connection-类)
+      * [connect()函数](#connect函数)
+         * [Spawn](#spawn)
+         * [Dialog](#dialog)
+         * [ExpectMatch](#expectmatch)
+         * [StateMachine](#statemachine)
 
 ## Pyats简介
 Pyats是思科开源的自动化测试框架。主要使用CLI与设备交互，支持多种device 类型，比如思科自己的IOS-XE设备，IOS-XR设备，以及JunOS设备和linux Server。
@@ -282,14 +295,11 @@ StateMachine类就是包含了所有的State，Path的集合体,以及当前的s
 
 State Machine需要解决的一个问题就是最短路径。
 比如有下图的state machine:
-
 ![State Machine Path](https://github.com/lpfwd/MyReadingNotes/blob/main/pics/state_machine_path.png?raw=true)
-
 从**state1**到**state5**,总共有3条路径
 * 1，2，5
 * 1，4，2，5
 * 1，4，6，5
-
 但是最短的路径是1,2,5, 那么状态转换就从这条路走。
 unicon里面使用的算法是把from_state和to_state中间所有的Path都找出来，每一条路由存成一个list,然后比较list的长度，找出最短的路径。
 
@@ -297,9 +307,11 @@ unicon里面使用的算法是把from_state和to_state中间所有的Path都找�
 可以对比Spring中StateMachine的实现
 ```
 
+再看iosxe的state machine实现，基本就是定义了一些State和Path.
 
+![Ios-XE state and path](https://github.com/lpfwd/MyReadingNotes/blob/main/pics/iosxe_working_state_transition.png?raw=true)
 
-
+对于用户初次connect到系统需要认证的部分，则是在ConnectionProvider里面，同样也是使用了state machine.
 
 
 
