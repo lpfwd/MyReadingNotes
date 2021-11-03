@@ -1,4 +1,7 @@
 # PYATS -- UNICON
+
+[TOC]
+
 ## Pyats简介
 Pyats是思科开源的自动化测试框架。主要使用CLI与设备交互，支持多种device 类型，比如思科自己的IOS-XE设备，IOS-XR设备，以及JunOS设备和linux Server。
 [Pyats Official Doc](https://developer.cisco.com/docs/pyats/)
@@ -121,8 +124,7 @@ unicon
 对于 *IosXESingleRpConnection* 会直接调用其base claas -- Connection的connect()
 在继续进行connect()函数的介绍之前，需要先看一下Connection类的几大组件。
 
-### 组件
-
+###组件
 #### Spawn
 ![Spawn继承结构图](https://github.com/lpfwd/MyReadingNotes/blob/main/pics/unicon_spawn.png?raw=true) 
   
@@ -244,4 +246,54 @@ Dialog 实例化以后，会调用方法process()处理这个Dialog. process()�
 如果expect()或者Dialog的process(), 匹配到一个pattern, 那么会把re.search()的结果存入last_match, 把pattern list里面match到的pattern的index存入last_match_index, 把re.search().group()存入match_output。最后会调用spawn.trim_buffer(),把match的output从spawn的buffer里面拿掉。
 
 #### StateMachine
+Unicon内部实现了一个简单的state machine框架，目录在
+unicon
+  +--statemachine
+        +-- __init__.py
+        +-- statemachine.py      *main function of state machine*
+        +-- statetransition.py    *helper function to do transition operation.*
+
+其中抽象出来的有：
+* State
+* Path
+* StateMachine
+* StateTransition
+
+State比较好理解就是状态，其中包含了name和pattern, 比如当前状态是config, 那么对于的pattern 就是匹配 *Hostname(config)#* 的正则表达式
+Path就是状态迁移，State类似图上的点，那么path就是连接两个点的有向边。其中包含了
+from_state, to_state, command 和Dialog
+code example:
+
+```python
+            path1 = Path(from_state='enable',
+                         to_state='config',
+                         command='config terminal'
+                         dialog=None)
+
+            path2 = Path(from_state='disable',
+                         to_state='enable',
+                         command='en'
+                         dialog=Dialog([r'password:', action=send_password, None, True, True]))
+```
+
+StateMachine类就是包含了所有的State，Path的集合体,以及当前的state.
+如果要驱动一个状态转义，就是比如从disable到config, 那么需要先建立一个StateTransition，然后调用 .do_transitions()
+
+State Machine需要解决的一个问题就是最短路径。
+比如有下图的state machine:
+![State Machine Path](https://github.com/lpfwd/MyReadingNotes/blob/main/pics/state_machine_path.png?raw=true)
+从**state1**到**state5**,总共有3条路径
+* 1，2，5
+* 1，4，2，5
+* 1，4，6，5
+但是最短的路径是1,2,5, 那么状态转换就从这条路走。
+unicon里面使用的算法是把from_state和to_state中间所有的Path都找出来，每一条路由存成一个list,然后比较list的长度，找出最短的路径。
+
+```
+可以对比Spring中StateMachine的实现
+```
+
+
+
+
 
