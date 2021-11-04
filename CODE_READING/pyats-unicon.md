@@ -313,5 +313,14 @@ unicon里面使用的算法是把from_state和to_state中间所有的Path都找�
 
 对于用户初次connect到系统需要认证的部分，则是在ConnectionProvider里面，同样也是使用了state machine.
 
+在认证方面，Unicon最核心的内容就是大量的针对Cisco设备的pattern和Statement
+具体参考 *GenericStatements()* 和 *GenericPatterns()*
+其中针对Cisco 设备的特殊处理有：
+* 如果系统启动以后在rommon里面该怎么处理
+* 系统没有startup config,在启动以后会进入system config.这个时候怎么处理
+* 如果Connection Refuse，怎么处理
+* 如果成功连接设备，弹出Username: / Password: 怎么处理。
+* Unicon支持多组credential, 如果认证失败，会接着用其他密码认证。
+
 
 
