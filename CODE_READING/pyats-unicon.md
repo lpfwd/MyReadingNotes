@@ -295,11 +295,14 @@ StateMachine类就是包含了所有的State，Path的集合体,以及当前的s
 
 State Machine需要解决的一个问题就是最短路径。
 比如有下图的state machine:
+
 ![State Machine Path](https://github.com/lpfwd/MyReadingNotes/blob/main/pics/state_machine_path.png?raw=true)
+
 从**state1**到**state5**,总共有3条路径
 * 1，2，5
 * 1，4，2，5
 * 1，4，6，5
+
 但是最短的路径是1,2,5, 那么状态转换就从这条路走。
 unicon里面使用的算法是把from_state和to_state中间所有的Path都找出来，每一条路由存成一个list,然后比较list的长度，找出最短的路径。
 
